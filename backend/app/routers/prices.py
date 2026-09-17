@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.config import SYMBOLS, TIMEFRAMES
 from app.schemas import PricesResponse
-from app.services import fetch_price_data
+from app.services import maket_data_logic as market_data_logic
 from app.schemas import Candle
 
 router = APIRouter(tags=["prices"])
@@ -15,8 +15,8 @@ def get_prices(symbol: str, timeframe: str = "H1") -> PricesResponse:
     if timeframe not in TIMEFRAMES:
         raise HTTPException(status_code=400, detail=f"Unsupported timeframe '{timeframe}'")
 
-    ticker = TIMEFRAMES[timeframe]
-    data_fetched = fetch_price_data(symbol, ticker)
+    ticker = SYMBOLS[symbol]
+    data_fetched = market_data_logic.fetch_ohlc(ticker, timeframe)
     candles = [
         Candle(
             timestamp=i.isoformat(),
@@ -27,4 +27,4 @@ def get_prices(symbol: str, timeframe: str = "H1") -> PricesResponse:
         )
         for i, row in data_fetched.iterrows()
     ]
-    raise HTTPException(status_code=501, detail="Price fetching not implemented yet")
+    return PricesResponse(symbol=symbol, timeframe=timeframe, candles=candles)
