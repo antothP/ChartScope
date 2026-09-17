@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.config import SYMBOLS, TIMEFRAMES
 from app.schemas import PricesResponse
+from app.services import fetch_price_data
+from app.schemas import Candle
 
 router = APIRouter(tags=["prices"])
 
@@ -13,5 +15,16 @@ def get_prices(symbol: str, timeframe: str = "H1") -> PricesResponse:
     if timeframe not in TIMEFRAMES:
         raise HTTPException(status_code=400, detail=f"Unsupported timeframe '{timeframe}'")
 
-    # je fetcherai info via yfinance api
+    ticker = TIMEFRAMES[timeframe]
+    data_fetched = fetch_price_data(symbol, ticker)
+    candles = [
+        Candle(
+            timestamp=i.isoformat(),
+            open=row["Open"],
+            high=row["High"],
+            low=row["Low"],
+            close=row["Close"],
+        )
+        for i, row in data_fetched.iterrows()
+    ]
     raise HTTPException(status_code=501, detail="Price fetching not implemented yet")
