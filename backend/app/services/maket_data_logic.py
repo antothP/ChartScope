@@ -9,7 +9,7 @@ YFINANCE_INTERVALS = {
 
 def resample_to_h4(df: pd.DataFrame) -> pd.DataFrame:
     """Regroupe des bougies H1 en bougies H4."""
-    return df.resample("4h").agg(
+    res_df = df.resample("4h").agg(
         {
             "Open": "first",
             "High": "max",
@@ -17,7 +17,7 @@ def resample_to_h4(df: pd.DataFrame) -> pd.DataFrame:
             "Close": "last",
         }
     )
-
+    return res_df.dropna()
 
 def fetch_ohlc(ticker: str, timeframe: str) -> pd.DataFrame:
     """Récupère les bougies OHLC brutes pour un ticker et un timeframe donnés."""
