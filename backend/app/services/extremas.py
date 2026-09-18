@@ -1,14 +1,14 @@
 import pandas as pd
 from scipy.signal import find_peaks
 
-PROMINENCE_BY_TIMEFRAME = {
-    "H1": 30,
-    "H4": 60,
-    "D1": 150,
+PROMINENCE_PCT_BY_TIMEFRAME = {
+    "H1": 0.001,
+    "H4": 0.002,
+    "D1": 0.005,
 }
 
 def find_extrema(df: pd.DataFrame, timeframe: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    prominence = PROMINENCE_BY_TIMEFRAME[timeframe]
+    prominence = df["High"].mean() * PROMINENCE_PCT_BY_TIMEFRAME[timeframe]
     peak_idx, _ = find_peaks(df["High"], prominence=prominence)
     trough_idx, _ = find_peaks(-df["Low"], prominence=prominence)
     peaks = df.iloc[peak_idx]
