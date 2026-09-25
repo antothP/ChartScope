@@ -1,4 +1,52 @@
-# Python
+# ============================================
+# SÉCURITÉ / SECRETS section prioritaire
+# ============================================
+
+.claude/
+.claude.json
+.claude.json.backup
+
+
+mcp.json
+.mcp.json
+**/mcp_config.json
+
+# Variables d'environnement / secrets génériques
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*credentials*.json
+*secret*
+*.secrets
+id_rsa
+id_ed25519
+*.ppk
+
+# Clouds (au cas où un fichier de config traîne dans le repo)
+.aws/
+.gcp/
+.azure/
+gcloud-service-key.json
+service-account*.json
+
+# Terraform (souvent des secrets dans .tfstate)
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+
+# Historique shell (si jamais copié dans le repo par erreur)
+.bash_history
+.zsh_history
+
+# ============================================
+# PYTHON
+# ============================================
 __pycache__/
 *.py[cod]
 *.pyo
@@ -11,24 +59,40 @@ build/
 .mypy_cache/
 .ruff_cache/
 
-# Env
-.env
-.env.*
-
-# Node
+# ============================================
+# NODE
+# ============================================
 node_modules/
 dist/
 .vite/
 npm-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+.npmrc
 
-# Editors
+# ============================================
+# ÉDITEURS
+# ============================================
 .vscode/
 .idea/
+*.swp
+*.swo
 
+# ============================================
 # OS
+# ============================================
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Doc
+# ============================================
+# LOGS / CACHE DIVERS
+# ============================================
+*.log
+logs/
+.cache/
+
+# ============================================
+# DOC
+# ============================================
 *.md
