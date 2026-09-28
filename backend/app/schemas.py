@@ -12,6 +12,8 @@ class Candle(BaseModel):
     high: float
     low: float
     close: float
+    # 0 quand Yahoo ne fournit pas de volume (paires de devises)
+    volume: float = 0
 
 
 class PricesResponse(BaseModel):
@@ -29,6 +31,8 @@ class PatternKeyPoint(BaseModel):
 class Pattern(BaseModel):
     type: str
     confirmed: bool
+    # bougie qui a cassé la ligne de cou (None si la figure est encore en cours)
+    breakout_timestamp: str | None = None
     key_points: list[PatternKeyPoint]
     bias: str
     target_price: float

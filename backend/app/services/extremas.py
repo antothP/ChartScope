@@ -1,61 +1,74 @@
 import pandas as pd
 from scipy.signal import find_peaks
 
-PROMINENCE_PCT_BY_TIMEFRAME = {
-    "H1": 0.001,
-    "H4": 0.002,
-    "D1": 0.005,
-}
+from app.services.detect_chart import extreme_between, has_prior_trend
 
-def find_extrema(df: pd.DataFrame, timeframe: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    prominence = df["High"].mean() * PROMINENCE_PCT_BY_TIMEFRAME[timeframe]
+# un pivot doit dominer son voisinage d'au moins N tailles moyennes de bougie, sinon c'est du bruit
+PROMINENCE_CANDLES = 2.0
+
+
+def find_extrema(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # en tailles de bougie : s'adapte seul à l'actif et à l'UT (un % fixe donnait 0,35 bougie en H1)
+    prominence = PROMINENCE_CANDLES * (df["High"] - df["Low"]).mean()
     peak_idx, _ = find_peaks(df["High"], prominence=prominence)
     trough_idx, _ = find_peaks(-df["Low"], prominence=prominence)
     peaks = df.iloc[peak_idx]
     troughs = df.iloc[trough_idx]
     return peaks, troughs
 
-def has_significant_dip_between(extrema: pd.DataFrame, start, end, reference_price: float, min_depth: float) -> bool:
-    between = extrema[(extrema.index > start) & (extrema.index < end)]
-    if between.empty:
-        return False
-    if "Low" in between.columns:
-        return (between["Low"] <= reference_price * (1 - min_depth)).any()
-    return (between["High"] >= reference_price * (1 + min_depth)).any()
+def mean_candle_range(df: pd.DataFrame) -> float:
+    """Taille moyenne d'une bougie en fraction du prix : la volatilité propre à l'actif et à l'UT."""
+    return float(((df["High"] - df["Low"]) / df["Close"]).mean())
+
+
+def _is_double(first: float, second: float, neckline: float, volatility: float, min_depth_k: float, max_asymmetry: float) -> bool:
+    heights = abs(first - neckline), abs(second - neckline)
+    # la ligne de cou doit être assez loin des deux sommets, en multiple de la taille d'une bougie
+    deep_enough = min(heights) / neckline >= min_depth_k * volatility
+    # les deux sommets doivent être au même niveau à l'échelle de la figure
+    symmetric = abs(first - second) <= max_asymmetry * max(heights)
+    return deep_enough and symmetric
+
+
+def _detect_doubles(
+    df: pd.DataFrame,
+    pivots: pd.DataFrame,
+    opposite: pd.DataFrame,
+    column: str,
+    opp_column: str,
+    lowest_neck: bool,
+    volatility: float,
+    min_depth_k: float,
+    max_asymmetry: float,
+) -> pd.DataFrame:
+    found = []
+    # on part des pivots les plus récents : si des paires se chevauchent (triple sommet), la plus récente prime
+    i = len(pivots) - 2
+    while i >= 0:
+        a, b = pivots.iloc[i], pivots.iloc[i + 1]
+        neck = extreme_between(opposite, a.name, b.name, opp_column, lowest=lowest_neck)
+        if (
+            neck
+            and _is_double(a[column], b[column], neck[1], volatility, min_depth_k, max_asymmetry)
+            # double sommet : la hausse qui y mène part d'en dessous de la ligne de cou (et inversement)
+            and has_prior_trend(df, opposite, a.name, neck[1], lowest_neck, volatility)
+        ):
+            found += [a, b]
+            i -= 2
+        else:
+            i -= 1
+    return pd.DataFrame(found)
 
 
 def detect_double_extrema(
+    df: pd.DataFrame,
     peaks: pd.DataFrame,
     troughs: pd.DataFrame,
-    tolerance: float = 0.02,
-    min_depth: float = 0.01,
+    volatility: float,
+    min_depth_k: float = 3.0,
+    max_asymmetry: float = 0.3,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-
-    double_tops = []
-    double_bottoms = []
-    i = 0
-    j = 0
-
-    while i < len(peaks) - 1:
-        p1, p2 = peaks.iloc[i], peaks.iloc[i + 1]
-        gap_top = abs(p1["High"] - p2["High"]) / p1["High"]
-        reference = min(p1["High"], p2["High"])
-        has_neckline = has_significant_dip_between(troughs, p1.name, p2.name, reference, min_depth)
-        if gap_top <= tolerance and has_neckline:
-            double_tops.append(p1)
-            double_tops.append(p2)
-            i += 2
-        else:
-            i += 1
-    while j < len(troughs) - 1:
-        t1, t2 = troughs.iloc[j], troughs.iloc[j + 1]
-        gap_trough = abs(t1["Low"] - t2["Low"]) / t1["Low"]
-        reference = max(t1["Low"], t2["Low"])
-        has_neckline = has_significant_dip_between(peaks, t1.name, t2.name, reference, min_depth)
-        if gap_trough <= tolerance and has_neckline:
-            double_bottoms.append(t1)
-            double_bottoms.append(t2)
-            j += 2
-        else:
-            j += 1
-    return pd.DataFrame(double_tops), pd.DataFrame(double_bottoms)
+    """(double tops, double bottoms), chacun sous forme de paires de lignes consécutives."""
+    double_tops = _detect_doubles(df, peaks, troughs, "High", "Low", True, volatility, min_depth_k, max_asymmetry)
+    double_bottoms = _detect_doubles(df, troughs, peaks, "Low", "High", False, volatility, min_depth_k, max_asymmetry)
+    return double_tops, double_bottoms

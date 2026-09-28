@@ -24,6 +24,7 @@ def get_prices(symbol: str, timeframe: str = "H1") -> PricesResponse:
             high=row["High"],
             low=row["Low"],
             close=row["Close"],
+            volume=row["Volume"],
         )
         for i, row in data_fetched.iterrows()
     ]

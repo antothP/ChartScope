@@ -8,6 +8,13 @@ YFINANCE_INTERVALS = {
     "D1": "1d",
 }
 
+# profondeur d'historique par UT (Yahoo compte les périodes intraday en jours de bourse, max ~730j en 1h)
+PERIODS = {
+    "H1": "60d",
+    "H4": "180d",
+    "D1": "2y",
+}
+
 CACHE_TTL_SECONDS = 300
 _cache: dict[tuple[str, str], tuple[float, pd.DataFrame]] = {}
 
@@ -16,9 +23,9 @@ class MarketDataUnavailable(Exception):
     """Yahoo Finance n'a pas renvoyé de données exploitables."""
 
 
-def _download(ticker: str, interval: str) -> pd.DataFrame:
+def _download(ticker: str, period: str, interval: str) -> pd.DataFrame:
     try:
-        df = yf.Ticker(ticker).history(period="60d", interval=interval)
+        df = yf.Ticker(ticker).history(period=period, interval=interval)
     except Exception as e:
         raise MarketDataUnavailable(f"Yahoo Finance error for {ticker}: {e}") from e
     if df.empty:
@@ -34,6 +41,7 @@ def resample_to_h4(df: pd.DataFrame) -> pd.DataFrame:
             "High": "max",
             "Low": "min",
             "Close": "last",
+            "Volume": "sum",
         }
     )
     return res_df.dropna()
@@ -46,9 +54,9 @@ def fetch_ohlc(ticker: str, timeframe: str) -> pd.DataFrame:
         return cached[1]
 
     if timeframe == "H4" or timeframe == "h4":
-        df = resample_to_h4(_download(ticker, "1h"))
+        df = resample_to_h4(_download(ticker, PERIODS["H4"], "1h"))
     else:
-        df = _download(ticker, YFINANCE_INTERVALS[timeframe])
+        df = _download(ticker, PERIODS[timeframe], YFINANCE_INTERVALS[timeframe])
 
     _cache[key] = (time.monotonic(), df)
     return df
